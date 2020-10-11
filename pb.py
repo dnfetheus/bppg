@@ -31,10 +31,7 @@ def code_packet(original_packet: list, height: int, width: int) -> list:
 
         # adição de bits de paridade de coluna
         for j in range(width):
-            amt = 0
-
-            for k in range(height):
-                amt = amt + parity_matrix[k][j]
+            amt = reduce(lambda x, y: x + y, [parity_matrix[k][j] for k in range(height)])
 
             if amt % 2 == 0:
                 coded_packet[i * coded_bits_len + data_bits_len + j] = 0
@@ -83,10 +80,7 @@ def decode_packet(transmitted_packet: list, height: int, width: int) -> list:
 
         # verificação de erro em colunas
         for j in range(width):
-            amt = 0
-
-            for k in range(height):
-                amt = amt + parity_matrix[k][j]
+            amt = reduce(lambda x, y: x + y, [parity_matrix[k][j] for k in range(height)])
 
             if amt % 2 != parity_columns[j]:
                 error_in_column = j
