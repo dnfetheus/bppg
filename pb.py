@@ -2,7 +2,6 @@ import random
 import math
 import sys
 from functools import reduce
-import operator as op
 
 
 def code_packet(original_packet: list, rows: int, cols: int) -> list:
@@ -15,9 +14,9 @@ def code_packet(original_packet: list, rows: int, cols: int) -> list:
     # tamanho em bits total
     coded_bits_len = data_bits_with_column_len + rows
     # tamanho estimado do pacote codificado
-    coded_len = len(original_packet) + ((rows + cols) * (len(original_packet) / data_bits_len))
-    # inicialização com 0 do pacote codigicado
-    coded_packet = [0 for _ in range(int(coded_len))]
+    coded_packet_len = len(original_packet) * (1 + ((rows + cols) / data_bits_len))
+    # inicialização com 0 do pacote codificado
+    coded_packet = [0 for _ in range(int(coded_packet_len))]
 
     # iteração no pacote por partes de dados da paridade
     for i in range(int(len(original_packet) / data_bits_len)):
@@ -32,12 +31,12 @@ def code_packet(original_packet: list, rows: int, cols: int) -> list:
 
         # adição de bits de paridade de coluna
         for j in range(cols):
-            amt = reduce(op.add, [data_matrix[k][j] for k in range(rows)])
+            amt = reduce(lambda x, y: x + y, [data_matrix[k][j] for k in range(rows)])
             coded_packet[i * coded_bits_len + data_bits_len + j] = amt % 2
 
         # adição de bits de paridade de linha
         for j in range(rows):
-            amt = reduce(op.add, data_matrix[j])
+            amt = reduce(lambda x, y: x + y, data_matrix[j])
             coded_packet[i * coded_bits_len + data_bits_with_column_len + j] = amt % 2
 
     return coded_packet
@@ -51,8 +50,6 @@ def decode_packet(transmitted_packet: list, rows: int, cols: int) -> list:
     parity_columns = [0 for _ in range(cols)]
     parity_rows = [0 for _ in range(rows)]
     decoded_packet = [0 for _ in range(len(transmitted_packet))]
-
-    n = 0
 
     # iteração do pacote transmitido por bits codificados
     for i in range(0, len(transmitted_packet), coded_bits_len):
@@ -73,7 +70,7 @@ def decode_packet(transmitted_packet: list, rows: int, cols: int) -> list:
 
         # verificação de erro em colunas
         for j in range(cols):
-            amt = reduce(op.add, [data_matrix[k][j] for k in range(rows)])
+            amt = reduce(lambda x, y: x + y, [data_matrix[k][j] for k in range(rows)])
 
             if amt % 2 != parity_columns[j]:
                 error_in_column = j
@@ -83,7 +80,7 @@ def decode_packet(transmitted_packet: list, rows: int, cols: int) -> list:
 
         # verificação de erro em linhas
         for j in range(rows):
-            amt = reduce(op.add, data_matrix[j])
+            amt = reduce(lambda x, y: x + y, data_matrix[j])
 
             if amt % 2 != parity_rows[j]:
                 error_in_row = j
@@ -96,9 +93,7 @@ def decode_packet(transmitted_packet: list, rows: int, cols: int) -> list:
         # passagem de dados da matriz pro pacote decodificado
         for j in range(rows):
             for k in range(cols):
-                decoded_packet[data_bits_len * n + cols * j + k] = data_matrix[j][k]
-
-        n = n + 1
+                decoded_packet[data_bits_len * int(i / coded_bits_len) + cols * j + k] = data_matrix[j][k]
 
     return decoded_packet
 
@@ -152,7 +147,7 @@ def count_errors(original_packet: list, decoded_packet: list) -> int:
 def print_help(self_name: str) -> None:
     sys.stderr.write("Simulador de metodos de FEC/codificacao.\n\n")
     sys.stderr.write("Modo de uso:\n\n")
-    sys.stderr.write("\t" + self_name + " <tam_pacote> <reps> <prob. erro> <comprimento> <altura>\n\n")
+    sys.stderr.write("\t" + self_name + " <tam_pacote> <reps> <prob. erro> <linhas> <colunas>\n\n")
     sys.stderr.write("Onde:\n")
     sys.stderr.write("\t- <tam_pacote>: tamanho do pacote usado nas simulacoes (em bytes).\n")
     sys.stderr.write("\t- <reps>: numero de repeticoes da simulacao.\n")
@@ -198,7 +193,7 @@ def main() -> None:
             total_packet_error_count = total_packet_error_count + 1
 
     print('Numero de transmissoes simuladas: {0:d}\n'.format(reps))
-    print('Numero de bits transmitidos: {0:d}'.format(reps * packet_length * 8))
+    print('Numero de bits transmitidos: {0:d}'.format(reps * len(coded_packet)))
     print('Numero de bits errados inseridos: {0:d}\n'.format(total_inserted_error_count))
     print('Taxa de erro de bits (antes da decodificacao): {0:.2f}%'.format(float(total_inserted_error_count) / float(reps * len(coded_packet)) * 100.0))
     print('Numero de bits corrompidos apos decodificacao: {0:d}'.format(total_bit_error_count))
