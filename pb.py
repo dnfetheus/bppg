@@ -5,95 +5,78 @@ from functools import reduce
 
 
 def code_packet(original_packet: list, rows: int, cols: int) -> list:
-    # inicialização com 0 da matriz que receberá uma parte dos bits do pacote por iteração
     data_matrix = [[0 for _ in range(cols)] for _ in range(rows)]
-    # tamanho dos bits de dados por parte
-    data_bits_len = rows * cols
-    # tamanho dos bits de dados + bits de paridade de coluna por parte
-    data_bits_with_column_len = data_bits_len + cols
-    # tamanho em bits total
-    coded_bits_len = data_bits_with_column_len + rows
-    # tamanho estimado do pacote codificado
-    coded_packet_len = len(original_packet) * (1 + ((rows + cols) / data_bits_len))
-    # inicialização com 0 do pacote codificado
+    block_data_len = rows * cols
+    block_without_rows_len = block_data_len + cols
+    block_len = block_without_rows_len + rows
+    coded_packet_len = len(original_packet) * (1 + ((rows + cols) / block_data_len))
     coded_packet = [0 for _ in range(int(coded_packet_len))]
 
-    # iteração no pacote por partes de dados da paridade
-    for i in range(int(len(original_packet) / data_bits_len)):
-        # preenchimento da matriz de dados
+    for i in range(int(len(original_packet) / block_data_len)):
         for j in range(rows):
             for k in range(cols):
-                data_matrix[j][k] = original_packet[i * data_bits_len + cols * j + k]
+                data_matrix[j][k] = original_packet[i * block_data_len + cols * j + k]
 
-        # preenchimento da parte de dados do pacote codificado
-        for j in range(data_bits_len):
-            coded_packet[i * coded_bits_len + j] = original_packet[i * data_bits_len + j]
+        for j in range(block_data_len):
+            coded_packet[i * block_len + j] = original_packet[i * block_data_len + j]
 
-        # adição de bits de paridade de coluna
         for j in range(cols):
             amt = reduce(lambda x, y: x + y, [data_matrix[k][j] for k in range(rows)])
-            coded_packet[i * coded_bits_len + data_bits_len + j] = amt % 2
+            coded_packet[i * block_len + block_data_len + j] = amt % 2
 
-        # adição de bits de paridade de linha
         for j in range(rows):
             amt = reduce(lambda x, y: x + y, data_matrix[j])
-            coded_packet[i * coded_bits_len + data_bits_with_column_len + j] = amt % 2
+            coded_packet[i * block_len + block_without_rows_len + j] = amt % 2
 
     return coded_packet
 
 
 def decode_packet(transmitted_packet: list, rows: int, cols: int) -> list:
     data_matrix = [[0 for _ in range(cols)] for _ in range(rows)]
-    data_bits_len = rows * cols
-    data_bits_with_column_len = data_bits_len + cols
-    coded_bits_len = data_bits_with_column_len + rows
+    block_data_len = rows * cols
+    block_without_rows_len = block_data_len + cols
+    block_len = block_without_rows_len + rows
     parity_columns = [0 for _ in range(cols)]
     parity_rows = [0 for _ in range(rows)]
     decoded_packet = [0 for _ in range(len(transmitted_packet))]
 
-    # iteração do pacote transmitido por bits codificados
-    for i in range(0, len(transmitted_packet), coded_bits_len):
-        # preenchimento da matriz de dados
+    for i in range(0, len(transmitted_packet), block_len):
+        block_index = int(i / block_len)
+
         for j in range(rows):
             for k in range(cols):
                 data_matrix[j][k] = transmitted_packet[i + cols * j + k]
 
-        # preenchimento do array de bits de paridade de coluna
         for j in range(cols):
-            parity_columns[j] = transmitted_packet[i + data_bits_len + j]
+            parity_columns[j] = transmitted_packet[i + block_data_len + j]
 
-        # preenchimento do array de bits de paridade de linha
         for j in range(rows):
-            parity_rows[j] = transmitted_packet[i + data_bits_with_column_len + j]
+            parity_rows[j] = transmitted_packet[i + block_without_rows_len + j]
 
-        error_in_column = -1
+        wrong_column_index = -1
 
-        # verificação de erro em colunas
         for j in range(cols):
             amt = reduce(lambda x, y: x + y, [data_matrix[k][j] for k in range(rows)])
 
             if amt % 2 != parity_columns[j]:
-                error_in_column = j
+                wrong_column_index = j
                 break
 
-        error_in_row = -1
+        wrong_row_index = -1
 
-        # verificação de erro em linhas
         for j in range(rows):
             amt = reduce(lambda x, y: x + y, data_matrix[j])
 
             if amt % 2 != parity_rows[j]:
-                error_in_row = j
+                wrong_row_index = j
                 break
 
-        # correção de erro
-        if error_in_row > -1 and error_in_column > -1:
-            data_matrix[error_in_row][error_in_column] = int(not data_matrix[error_in_row][error_in_column])
+        if wrong_row_index > -1 and wrong_column_index > -1:
+            data_matrix[wrong_row_index][wrong_column_index] = int(not data_matrix[wrong_row_index][wrong_column_index])
 
-        # passagem de dados da matriz pro pacote decodificado
         for j in range(rows):
             for k in range(cols):
-                decoded_packet[data_bits_len * int(i / coded_bits_len) + cols * j + k] = data_matrix[j][k]
+                decoded_packet[block_data_len * block_index + cols * j + k] = data_matrix[j][k]
 
     return decoded_packet
 
